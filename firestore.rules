@@ -1,0 +1,219 @@
+rules_version = '2';
+
+// WhyVerse Firestore Security Rules
+//
+// Principles
+// 1. Guests (and children) can only READ published pages and categories. No collection
+// stores any identifier of a guest reader.
+// 2. Signed-in adults can only touch their own data, and can never set a page/submission
+// status. Server-controlled fields (banned, rejection streak, daily counters) can never be
+// written from the client.
+// 3. Admin = permanent "admin" custom claim (set by scripts/create-first-admin.js) AND a live
+// "adminUntil" claim (set by the adminVerifyCode function after the 6-digit code is
+// verified server-side; expires after 2 hours). Admin can READ review data.
+// 4. Every admin WRITE (publish, edit, ban, settings...) goes through a Cloud Function, never
+// directly from the browser, so it is validated and logged.
+// 5. Anything not matched below is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    // Admin with a live (unexpired) access-code session.
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.get('admin', false) == true
+        && request.auth.token.get('adminUntil', 0) * 1000 > request.time.toMillis();
+    }
+    function isBand(v) {
+      return v in ['junior', 'teen', 'all'];
+    }
+    function validDisplayName(v) {
+      return v is string && v.size() >= 2 && v.size() <= 30
+        && v.matches('^[\\p{L}\\p{N} _.-]+$');
+    }
+
+    // ---------- public content ----------
+    // Only published pages are readable. The Junior/Teen mode lives on the
+    // device, so the CLIENT adds the band filter to its query; the server guarantees that
+    // nothing unpublished ever leaves the database.
+    match /pages/{pageId} {
+      allow get, list: if resource.data.status == 'published' || isAdmin();
+      allow write: if false; // all writes via Cloud Functions
+
+      // Safety reports, raw sources, fact-check flags: admin read only.
+      match /private/{docId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Only the "public" settings doc (site flags, band labels) is world-readable.
+    match /settings/{docId} {
+      allow read: if docId == 'public' || isAdmin();
+      allow write: if false; // adminUpdateSettings function
+    }
+
+    // ---------- adult accounts ----------
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Sign-up: adult confirmation is mandatory; no server-controlled fields allowed.
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+             'displayName', 'interests', 'personalisation', 'notifyEmail',
+             'ageConfirmed', 'privacyAcceptedAt', 'privacyVersion', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll([
+             'displayName', 'interests', 'ageConfirmed', 'privacyAcceptedAt', 'createdAt'])
+        && request.resource.data.ageConfirmed == true
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.interests is list
+        && request.resource.data.interests.size() <= 12
+        && request.resource.data.get('personalisation', false) is bool
+        && request.resource.data.get('notifyEmail', false) is bool
+        && request.resource.data.createdAt == request.time;
+
+      // Edits: only these fields. banned / rejectionStreak / counters are server-only.
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['displayName', 'interests', 'personalisation', 'notifyEmail', 'updatedAt'])
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.interests is list
+        && request.resource.data.interests.size() <= 12
+        && request.resource.data.personalisation is bool
+        && request.resource.data.get('notifyEmail', false) is bool;
+
+      allow delete: if false; // deleteAccount function removes the profile and all subcollections
+
+      // Opt-in history for personalisation. Writing is allowed ONLY while the user has the
+      // personalisation toggle on. Deleting is always allowed ("clear history").
+      match /history/{eventId} {
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && get(/databases/$(database)/documents/users/$(uid)).data.get('personalisation', false) == true
+          && request.resource.data.keys().hasOnly(['type', 'pageId', 'term', 'category', 'at', 'expireAt'])
+          && request.resource.data.type in ['search', 'open', 'finish']
+          && request.resource.data.at == request.time
+          && (!('expireAt' in request.resource.data) || request.resource.data.expireAt is timestamp)
+          && (!('term' in request.resource.data) || (request.resource.data.term is string && request.resource.data.term.size() <= 60))
+          && (!('pageId' in request.resource.data) || (request.resource.data.pageId is string && request.resource.data.pageId.size() <= 80))
+          && (!('category' in request.resource.data) || (request.resource.data.category is string && request.resource.data.category.size() <= 40));
+        allow update: if false;
+      }
+    }
+
+    // Reading progress / saved pages (a normal feature of the account, not tracking).
+    match /readingProgress/{uid}/pages/{pageId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['progress', 'state', 'saved', 'title', 'slug', 'updatedAt'])
+        && request.resource.data.progress is number
+        && request.resource.data.progress >= 0 && request.resource.data.progress <= 100
+        && request.resource.data.state in ['reading', 'finished', 'none']
+        && request.resource.data.saved is bool
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // Drafts: author only. A draft can never carry a status other than "draft".
+    match /userDrafts/{uid}/drafts/{draftId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['title', 'category', 'ageBand', 'body', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string && request.resource.data.body.size() <= 15000
+        && request.resource.data.category is string && request.resource.data.category.size() <= 40
+        && isBand(request.resource.data.ageBand)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // Submissions are created and changed ONLY by Cloud Functions. Authors may read their own
+    // (to see status and the admin's comment); admins read all.
+    match /userSubmissions/{subId} {
+      allow read: if (signedIn() && resource.data.authorUid == request.auth.uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /notifications/{noteId} {
+      allow read: if (signedIn() && resource.data.get('recipientUid', '') == request.auth.uid)
+                  || (resource.data.get('audience', '') == 'admin' && isAdmin());
+      // The only thing a user may change is marking a notification read.
+      allow update: if signedIn() && resource.data.get('recipientUid', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false;
+    }
+
+    // Saved chats (adults who opted in). Created by the chat function only.
+    match /chats/{uid}/threads/{threadId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if false;
+    }
+
+    // ---------- admin-readable operational data (writes: Cloud Functions only) ----------
+    match /jobs/{jobId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /jobLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /moderationReports/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // "Report this page": created by the reportPage function. Holds no reporter identity.
+    match /reports/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /pageVersions/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /usage/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /stats/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /searchStats/{term} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /activityLog/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Lockout state for the 6-digit code. Never client readable.
+    match /adminSessions/{uid} {
+      allow read: if isAdmin() && isOwner(uid);
+      allow write: if false;
+    }
+
+    // ---------- fully private ----------
+    // adminSecrets: access-code hash. rateBuckets: hashed, expiring rate-limit counters.
+    match /adminSecrets/{id} {
+      allow read, write: if false;
+    }
+    match /rateBuckets/{id} {
+      allow read, write: if false;
+    }
+
+    // Everything else: denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

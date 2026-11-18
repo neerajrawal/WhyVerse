@@ -1,0 +1,23 @@
+{
+  "name": "whyverse",
+  "version": "0.2.0",
+  "private": true,
+  "description": "WhyVerse: auto-researched, age-banded learning pages. Free stack: Firebase Spark + Vercel Hobby + GitHub Actions.",
+  "scripts": {
+    "emulators": "firebase emulators:start",
+    "test:unit": "cd functions && node --test",
+    "test:rules": "firebase emulators:exec --only firestore \"node --test test/rules/rules.test.js\"",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
+    "seed": "node scripts/seed-settings.js",
+    "admin:create": "node scripts/create-first-admin.js",
+    "admin:code": "node scripts/set-access-code.js"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0",
+    "firebase-tools": "^14.0.0"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+@media print {
+  #site-header, #site-footer, .cookie-notice, .report, .quiz-actions, .mode-toggle, #toast-region, .skip-link { display: none !important; }
+  body { background: #fff; color: #000; font-size: 12pt; }
+  a { color: #000; }
+  .article a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+  .box { border: 1px solid #999; break-inside: avoid; }
+}

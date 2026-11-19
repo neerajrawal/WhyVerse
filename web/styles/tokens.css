@@ -1,0 +1,56 @@
+/* Design tokens. Colours are chosen to meet WCAG AA contrast (4.5:1 for text). */
+:root {
+  --bg: #fffaf2;
+  --surface: #ffffff;
+  --surface-2: #f6f0ff;
+  --ink: #1c1b3a;
+  --muted: #4b4a6a;
+  --border: #e2d9c6;
+  --primary: #5b3df5;
+  --primary-hover: #4326d6;
+  --on-primary: #ffffff;
+  --accent: #ffc83d;
+  --focus: #1c1b3a;
+  --good-bg: #dff6e8;
+  --good-ink: #0b5a2c;
+  --bad-bg: #ffe5e0;
+  --bad-ink: #8a1f0e;
+  --band-junior-bg: #d9f5e3;
+  --band-junior-ink: #0b5a2c;
+  --band-teen-bg: #dbe8ff;
+  --band-teen-ink: #0f3d99;
+  --band-all-bg: #ece3ff;
+  --band-all-ink: #3b1fb0;
+  --shadow: 0 2px 10px rgba(28, 27, 58, 0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --maxw: 72rem;
+  --narrow: 44rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14132b;
+    --surface: #1f1e40;
+    --surface-2: #2a2858;
+    --ink: #f4f2ff;
+    --muted: #c9c6ec;
+    --border: #3a3870;
+    --primary: #a090ff;
+    --primary-hover: #b9acff;
+    --on-primary: #14132b;
+    --focus: #ffe38a;
+    --good-bg: #123d26;
+    --good-ink: #b8f2cf;
+    --bad-bg: #4a1b14;
+    --bad-ink: #ffc9bf;
+    --band-junior-bg: #123d26;
+    --band-junior-ink: #b8f2cf;
+    --band-teen-bg: #16336e;
+    --band-teen-ink: #c8dbff;
+    --band-all-bg: #3a2c8a;
+    --band-all-ink: #e0d7ff;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+}

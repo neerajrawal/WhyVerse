@@ -3,77 +3,25 @@
   "installCommand": "npm install && cd web && npm install",
   "buildCommand": "cd web && npm run build",
   "outputDirectory": "web/dist",
-  "regions": [
-    "bom1"
-  ],
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 60,
-      "memory": 1024,
-      "includeFiles": "functions/**"
-    }
-  },
+  "regions": ["bom1"],
   "rewrites": [
-    {
-      "source": "/api/cron/:job",
-      "destination": "/api/cron?job=:job"
-    },
-    {
-      "source": "/api/:fn((?!cron$|call$)[A-Za-z0-9]+)",
-      "destination": "/api/call?fn=:fn"
-    },
-    {
-      "source": "/((?!api/|assets/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/cron/:job", "destination": "/api/cron?job=:job" },
+    { "source": "/api/:fn((?!cron$|call$)[A-Za-z0-9]+)", "destination": "/api/call?fn=:fn" },
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com https://www.google.com/recaptcha/ https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pexels.com; font-src 'self'; connect-src 'self' https://*.googleapis.com https://firebaseinstallations.googleapis.com https://www.google.com/recaptcha/ https://recaptchaenterprise.googleapis.com; frame-src https://*.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com https://www.google.com/recaptcha/ https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pexels.com; font-src 'self'; connect-src 'self' https://*.googleapis.com https://firebaseinstallations.googleapis.com https://www.google.com/recaptcha/ https://recaptchaenterprise.googleapis.com; frame-src https://*.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
       ]
     },
-    {
-      "source": "/authority(.*)",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    }
+    { "source": "/authority(.*)", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] },
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
   ]
 }
